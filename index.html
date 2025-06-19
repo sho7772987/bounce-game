@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>テニスゲーム 対CPU（JavaScript版）</title>
+<style>
+  body {
+    background: black;
+    margin: 0;
+    overflow: hidden;
+    user-select: none;
+  }
+  canvas {
+    display: block;
+    margin: auto;
+    background: black;
+  }
+  #scoreboard {
+    position: absolute;
+    top: 10px;
+    width: 100%;
+    color: white;
+    font-family: "Times New Roman", serif;
+    font-size: 24px;
+    text-align: center;
+    pointer-events: none;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="960" height="720"></canvas>
+<div id="scoreboard"></div>
+
+<script>
+(() => {
+  const WIDTH = 960;
+  const HEIGHT = 720;
+
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  let ball = {
+    x: WIDTH / 2,
+    y: HEIGHT / 2,
+    vx: 8,
+    vy: 8,
+    radius: 10,
+  };
+
+  let playerBar = {
+    x: WIDTH / 2,
+    y: HEIGHT - 40,
+    width: 100,
+    height: 10,
+  };
+
+  let cpuBar = {
+    x: WIDTH / 2,
+    y: 40,
+    width: 100,
+    height: 10,
+    maxSpeed: 20,
+    prevX: WIDTH / 2,
+  };
+
+  let playerScore = 0;
+  let cpuScore = 0;
+
+  let scene = "タイトル"; // タイトル、ゲーム、ゲームオーバー
+  let winner = null;
+
+  // マウス位置でプレイヤーバー移動
+  canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    let mouseX = e.clientX - rect.left;
+    playerBar.x = Math.min(Math.max(mouseX, playerBar.width / 2), WIDTH - playerBar.width / 2);
+  });
+
+  // クリックでゲーム開始またはリスタート
+  canvas.addEventListener("click", () => {
+    if (scene === "タイトル" || scene === "ゲームオーバー") {
+      scene = "ゲーム";
+      resetBall();
+      playerScore = 0;
+      cpuScore = 0;
+      winner = null;
+    }
+  });
+
+  function resetBall() {
+    ball.x = WIDTH / 2;
+    ball.y = HEIGHT / 2;
+    ball.vx = 8 * (Math.random() < 0.5 ? -1 : 1);
+    ball.vy = 8 * (Math.random() < 0.5 ? -1 : 1);
+  }
+
+  // CPUバーがボールを予測する関数
+  function predictBallX() {
+    if (ball.vy >= 0) return ball.x;
+
+    let bx = ball.x;
+    let by = ball.y;
+    let vx = ball.vx;
+    let vy = ball.vy;
+
+    while (by > cpuBar.y + cpuBar.height / 2) {
+      bx += vx;
+      by += vy;
+
+      if (bx < ball.radius) {
+        bx = ball.radius + (ball.radius - bx);
+        vx = -vx;
+      } else if (bx > WIDTH - ball.radius) {
+        bx = WIDTH - ball.radius - (bx - (WIDTH - ball.radius));
+        vx = -vx;
+      }
+      if (by < cpuBar.y + cpuBar.height / 2) break;
+    }
+    return bx;
+  }
+
+  // 影付きテキスト関数
+  function drawText(x, y, text, size, color) {
+    ctx.font = `${size}px "Times New Roman", serif`;
+    ctx.fillStyle = "black";
+    ctx.fillText(text, x + 1, y + 1);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+  }
+
+  function gameLoop() {
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+    // 背景（黒）
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    // 壁の当たり判定範囲（左右10px）を赤く表示
+    ctx.fillStyle = "red";
+    ctx.fillRect(0, 0, 10, HEIGHT); // 左壁
+    ctx.fillRect(WIDTH - 10, 0, 10, HEIGHT); // 右壁
+
+    // プレイヤーバー
+    ctx.fillStyle = "blue";
+    ctx.fillRect(playerBar.x - playerBar.width / 2, playerBar.y - playerBar.height / 2, playerBar.width, playerBar.height);
+
+    // CPUバー
+    ctx.fillStyle = "red";
+    ctx.fillRect(cpuBar.x - cpuBar.width / 2, cpuBar.y - cpuBar.height / 2, cpuBar.width, cpuBar.height);
+
+    // ボール
+    ctx.beginPath();
+    ctx.fillStyle = "white";
+    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // スコア表示
+    drawText(150, HEIGHT / 2, `Player\n${playerScore}`, 30, "cyan");
+    drawText(WIDTH - 150, HEIGHT / 2, `CPU\n${cpuScore}`, 30, "orange");
+
+    if (scene === "タイトル") {
+      drawText(WIDTH / 2 - 140, HEIGHT / 2 - 60, "Tennis Game", 60, "lime");
+      drawText(WIDTH / 2 - 100, HEIGHT / 2 + 20, "Click to Start", 30, "white");
+    } else if (scene === "ゲーム") {
+      let targetX = predictBallX();
+
+      // CPUのミス確率
+      const missChance = 0.3;
+      if (Math.random() < missChance) {
+        targetX += (Math.random() < 0.5 ? -1 : 1) * (30 + Math.random() * 70);
+      }
+
+      let oldCpuX = cpuBar.x;
+      if (cpuBar.x < targetX) {
+        cpuBar.x += Math.min(cpuBar.maxSpeed, targetX - cpuBar.x);
+      } else if (cpuBar.x > targetX) {
+        cpuBar.x -= Math.min(cpuBar.maxSpeed, cpuBar.x - targetX);
+      }
+      cpuBar.x = Math.min(Math.max(cpuBar.width / 2, cpuBar.x), WIDTH - cpuBar.width / 2);
+
+      // ボール移動
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+
+      // 壁で反射
+      if (ball.x < ball.radius || ball.x > WIDTH - ball.radius) {
+        ball.vx = -ball.vx;
+      }
+
+      // プレイヤーバー判定
+      let dxPlayer = ball.x - playerBar.x;
+      let dyPlayer = ball.y - playerBar.y;
+      if (Math.abs(dxPlayer) < playerBar.width / 2 + ball.radius &&
+          dyPlayer > -playerBar.height / 2 - ball.radius && dyPlayer < 0 && ball.vy > 0) {
+        ball.vy = -ball.vy;
+        ball.vx *= 1.1;
+        ball.vy *= 1.1;
+      }
+
+      // CPUバー判定（バーの移動範囲含めて）
+      let dxCPU = ball.x - cpuBar.x;
+      let dyCPU = ball.y - cpuBar.y;
+      let minBarX = Math.min(oldCpuX, cpuBar.x) - cpuBar.width / 2 - ball.radius;
+      let maxBarX = Math.max(oldCpuX, cpuBar.x) + cpuBar.width / 2 + ball.radius;
+
+      if (ball.x >= minBarX && ball.x <= maxBarX && dyCPU > 0 && dyCPU < cpuBar.height / 2 + ball.radius && ball.vy < 0) {
+        ball.vy = -ball.vy;
+        ball.vx *= 1.1;
+        ball.vy *= 1.1;
+      }
+
+      // ゴール判定
+      if (ball.y > HEIGHT) {
+        cpuScore++;
+        resetBall();
+        ball.vy = -Math.abs(ball.vy);
+      } else if (ball.y < 0) {
+        playerScore++;
+        resetBall();
+        ball.vy = Math.abs(ball.vy);
+      }
+
+      if (playerScore >= 5) {
+        scene = "ゲームオーバー";
+        winner = "Player";
+      } else if (cpuScore >= 5) {
+        scene = "ゲームオーバー";
+        winner = "CPU";
+      }
+    } else if (scene === "ゲームオーバー") {
+      drawText(WIDTH / 2 - 100, HEIGHT / 2 - 30, "GAME OVER", 50, "red");
+      drawText(WIDTH / 2 - 70, HEIGHT / 2 + 30, `${winner} Wins!`, 40, "yellow");
+      drawText(WIDTH / 2 - 90, HEIGHT / 2 + 90, "Click to Restart", 30, "white");
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+})();
+</script>
+
+</body>
+</html>
