@@ -21,7 +21,7 @@
 - ブラウザだけで作動、インストール不要
 
 
-
+---
 
 
 # bounce-game(English ver)
