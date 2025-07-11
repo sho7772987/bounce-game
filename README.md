@@ -2,8 +2,7 @@
 
 このゲームはCPUと戦う、テニス式のゲームです。
 先に5点を取得したほうが勝利となります。
-このゲームはPythonで作成したコードを Javascript/HTML/CSS によって書き換えました
-🔗[デモを見る](https://sho7772987.github.io/bounce-game/)
+このゲームはPythonで作成したコードを Javascript/HTML/CSS によって書き換えました  🔗[デモを見る](https://sho7772987.github.io/bounce-game/)
 
 ---
 
